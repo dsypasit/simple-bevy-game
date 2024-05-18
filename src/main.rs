@@ -1,8 +1,10 @@
-use bevy::{audio::Volume, core::Zeroable, prelude::*, window::PrimaryWindow};
+use bevy::{
+    audio::Volume, core::Zeroable, prelude::*, utils::tracing::Instrument, window::PrimaryWindow,
+};
 use rand::{random, seq::IteratorRandom, thread_rng};
 
 pub const PLAYER_SPEED: f32 = 300.0;
-pub const ENEMY_SPEED: f32 = 300.0;
+pub const ENEMY_SPEED: f32 = 200.0;
 pub const ENEMY_SIZE: f32 = 64.0;
 pub const PLAYER_SIZE: f32 = 64.0;
 pub const ENEMIS_NUMBER: i32 = 4;
@@ -10,7 +12,10 @@ pub const ENEMIS_NUMBER: i32 = 4;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, (spawn_player, spawn_enemy, spawn_camera))
+        .add_systems(
+            Startup,
+            (spawn_audio, spawn_player, spawn_enemy, spawn_camera),
+        )
         .add_systems(
             Update,
             (
@@ -19,6 +24,7 @@ fn main() {
                 enemy_movement,
                 update_enemy_movement,
                 confine_enemy_movement,
+                enemy_hit_player,
             ),
         )
         .run()
@@ -41,6 +47,21 @@ pub fn spawn_player(
             ..default()
         },
         Player {},
+    ));
+}
+
+#[derive(Component)]
+pub struct ExplosionClunchSound;
+
+pub fn spawn_audio(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn((
+        AudioBundle {
+            source: asset_server.load("audio/pluck_001.ogg"),
+            settings: PlaybackSettings::ONCE
+                .with_volume(Volume::new(0.5))
+                .with_spatial(true),
+        },
+        ExplosionClunchSound,
     ));
 }
 
@@ -86,28 +107,28 @@ pub fn player_movement(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let mut transform = player_query.get_single_mut().unwrap();
+    if let Ok(mut transform) = player_query.get_single_mut() {
+        let mut direction = Vec3::zeroed();
 
-    let mut direction = Vec3::zeroed();
+        if keyboard_input.pressed(KeyCode::KeyA) {
+            direction += Vec3::new(-1., 0., 0.);
+        }
+        if keyboard_input.pressed(KeyCode::KeyS) {
+            direction += Vec3::new(0., -1., 0.);
+        }
+        if keyboard_input.pressed(KeyCode::KeyW) {
+            direction += Vec3::new(0., 1., 0.);
+        }
+        if keyboard_input.pressed(KeyCode::KeyD) {
+            direction += Vec3::new(1., 0., 0.);
+        }
 
-    if keyboard_input.pressed(KeyCode::KeyA) {
-        direction += Vec3::new(-1., 0., 0.);
-    }
-    if keyboard_input.pressed(KeyCode::KeyS) {
-        direction += Vec3::new(0., -1., 0.);
-    }
-    if keyboard_input.pressed(KeyCode::KeyW) {
-        direction += Vec3::new(0., 1., 0.);
-    }
-    if keyboard_input.pressed(KeyCode::KeyD) {
-        direction += Vec3::new(1., 0., 0.);
-    }
+        if direction.length() > 0.0 {
+            direction = direction.normalize();
+        }
 
-    if direction.length() > 0.0 {
-        direction = direction.normalize();
+        transform.translation += direction * PLAYER_SPEED * time.delta_seconds();
     }
-
-    transform.translation += direction * PLAYER_SPEED * time.delta_seconds();
 }
 
 pub fn confine_player_movement(
@@ -156,21 +177,21 @@ pub fn update_enemy_movement(
     let max_x = window.width() - half_enemy;
     let max_y = window.height() - half_enemy;
     for (transform, mut enemy) in enemy_query.iter_mut() {
-        let mut update_direction = false;
+        let mut change_direction = false;
         let translation = transform.translation;
 
         let mut direction = Vec2::new(enemy.direction.x, enemy.direction.y);
 
         if translation.x < min_x || translation.x > max_x {
-            update_direction = true;
+            change_direction = true;
             direction.x *= -1.
         }
         if translation.y < min_y || translation.y > max_y {
-            update_direction = true;
+            change_direction = true;
             direction.y *= -1.
         }
 
-        if update_direction {
+        if change_direction {
             if random::<f32>() > 0.5 {
                 commands.spawn(AudioBundle {
                     source: asset_server.load("audio/pluck_001.ogg"),
@@ -221,5 +242,36 @@ pub fn enemy_movement(mut enemy_query: Query<(&mut Transform, &Enemy)>, time: Re
     for (mut transform, enemy) in enemy_query.iter_mut() {
         let direction = Vec3::new(enemy.direction.x, enemy.direction.y, 0.);
         transform.translation += direction * ENEMY_SPEED * time.delta_seconds();
+    }
+}
+
+pub fn enemy_hit_player(
+    mut commands: Commands,
+    enemy_query: Query<&Transform, With<Enemy>>,
+    mut player_query: Query<(Entity, &Transform), With<Player>>,
+    asset_server: Res<AssetServer>,
+    music_query: Query<&AudioSink, With<ExplosionClunchSound>>,
+) {
+    if let Ok((player_entity, player_transform)) = player_query.get_single_mut() {
+        for enemy_transform in enemy_query.iter() {
+            let distance = player_transform
+                .translation
+                .distance(enemy_transform.translation);
+            let player_radius = PLAYER_SIZE / 2.0;
+            let enemy_radius = ENEMY_SIZE / 2.0;
+            if distance < player_radius + enemy_radius {
+                commands.spawn((
+                    AudioBundle {
+                        source: asset_server.load("audio/explosionCrunch_000.ogg"),
+                        settings: PlaybackSettings::ONCE
+                            .with_volume(Volume::new(0.5))
+                            .with_spatial(true),
+                    },
+                    ExplosionClunchSound,
+                ));
+                println!("Game over!");
+                commands.entity(player_entity).despawn();
+            }
+        }
     }
 }
