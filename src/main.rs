@@ -1,5 +1,5 @@
-use bevy::{core::Zeroable, prelude::*, window::PrimaryWindow};
-use rand::random;
+use bevy::{audio::Volume, core::Zeroable, prelude::*, window::PrimaryWindow};
+use rand::{random, seq::IteratorRandom, thread_rng};
 
 pub const PLAYER_SPEED: f32 = 300.0;
 pub const ENEMY_SPEED: f32 = 300.0;
@@ -145,6 +145,8 @@ pub fn confine_player_movement(
 pub fn update_enemy_movement(
     mut enemy_query: Query<(&mut Transform, &mut Enemy)>,
     window_query: Query<&Window, With<PrimaryWindow>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
     let window = window_query.get_single().unwrap();
 
@@ -154,14 +156,32 @@ pub fn update_enemy_movement(
     let max_x = window.width() - half_enemy;
     let max_y = window.height() - half_enemy;
     for (transform, mut enemy) in enemy_query.iter_mut() {
+        let mut update_direction = false;
         let translation = transform.translation;
+
         let mut direction = Vec2::new(enemy.direction.x, enemy.direction.y);
 
         if translation.x < min_x || translation.x > max_x {
+            update_direction = true;
             direction.x *= -1.
         }
         if translation.y < min_y || translation.y > max_y {
+            update_direction = true;
             direction.y *= -1.
+        }
+
+        if update_direction {
+            if random::<f32>() > 0.5 {
+                commands.spawn(AudioBundle {
+                    source: asset_server.load("audio/pluck_001.ogg"),
+                    settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
+                });
+            } else {
+                commands.spawn(AudioBundle {
+                    source: asset_server.load("audio/pluck_001.ogg"),
+                    settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
+                });
+            }
         }
         enemy.direction = direction;
     }
