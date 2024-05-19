@@ -8,6 +8,7 @@ pub const STAR_NUMBER: i32 = 10;
 pub const ENEMIS_NUMBER: i32 = 4;
 pub const ENEMY_SPEED: f32 = 200.0;
 pub const ENEMY_SIZE: f32 = 64.0;
+pub const STAR_SPAWN_TIME: f32 = 1.0;
 
 fn main() {
     App::new()
@@ -21,6 +22,7 @@ fn main() {
             ..default()
         }))
         .init_resource::<Score>()
+        .init_resource::<starSpawnTimer>()
         .add_systems(
             Startup,
             (
@@ -35,13 +37,15 @@ fn main() {
             Update,
             (
                 player_movement,
-                confine_player_movement,
                 enemy_movement,
+                confine_player_movement.before(enemy_movement),
                 update_enemy_movement,
                 confine_enemy_movement,
                 enemy_hit_player,
                 player_hit_star,
                 update_score,
+                spawn_star_overtime,
+                tick_star_spawn_timer,
             ),
         )
         .run()
@@ -105,6 +109,45 @@ pub fn player_hit_star(
 pub fn update_score(score: Res<Score>) {
     if score.is_changed() {
         eprintln!("Score:{}", score.value)
+    }
+}
+
+pub fn tick_star_spawn_timer(mut star_spawn_timer: ResMut<starSpawnTimer>, time: Res<Time>) {
+    star_spawn_timer.timer.tick(time.delta());
+}
+
+pub fn spawn_star_overtime(
+    mut commands: Commands,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    asset_server: Res<AssetServer>,
+    star_spawn_timer: Res<starSpawnTimer>,
+) {
+    if star_spawn_timer.timer.finished() {
+        let window = window_query.get_single().unwrap();
+        let rand_x = random::<f32>() * window.width();
+        let rand_y = random::<f32>() * window.height();
+
+        commands.spawn((
+            SpriteBundle {
+                transform: Transform::from_xyz(rand_x, rand_y, 0.0),
+                texture: asset_server.load("sprites/star.png"),
+                ..default()
+            },
+            Star {},
+        ));
+    }
+}
+
+#[derive(Resource)]
+pub struct starSpawnTimer {
+    pub timer: Timer,
+}
+
+impl Default for starSpawnTimer {
+    fn default() -> Self {
+        Self {
+            timer: Timer::from_seconds(STAR_SPAWN_TIME, TimerMode::Repeating),
+        }
     }
 }
 
@@ -216,7 +259,8 @@ pub fn confine_player_movement(
     if let Ok(mut player_transform) = player_query.get_single_mut() {
         let window = window_query.get_single().unwrap();
 
-        let half_player = PLAYER_SIZE / 2.0;
+        // let half_player = PLAYER_SIZE / 2.0;
+        let half_player = 0.0;
         let min_x = 0.0 + half_player;
         let min_y = 0.0 + half_player;
         let max_x = window.width() - half_player;
@@ -260,16 +304,17 @@ pub fn update_enemy_movement(
 
         let mut direction = Vec2::new(enemy.direction.x, enemy.direction.y);
 
-        if translation.x < min_x || translation.x > max_x {
+        if translation.x <= min_x || translation.x >= max_x {
             change_direction = true;
             direction.x *= -1.
         }
-        if translation.y < min_y || translation.y > max_y {
+        if translation.y <= min_y || translation.y >= max_y {
             change_direction = true;
             direction.y *= -1.
         }
 
         if change_direction {
+            eprintln!("hit edge screen");
             if random::<f32>() > 0.5 {
                 commands.spawn(AudioBundle {
                     source: asset_server.load("audio/pluck_001.ogg"),
@@ -300,18 +345,21 @@ pub fn confine_enemy_movement(
     enemy_query.iter_mut().for_each(|mut transform| {
         let mut translation = transform.translation;
 
-        if translation.x < min_x {
+        if translation.x <= min_x {
             translation.x = min_x
         }
-        if translation.y < min_y {
+        if translation.y <= min_y {
             translation.y = min_y
         }
-        if translation.x > max_x {
+        if translation.x >= max_x {
             translation.x = max_x
         }
-        if translation.y > max_y {
+        if translation.y >= max_y {
             translation.y = max_y
         }
+        eprintln!("confine {:?}", translation);
+        eprintln!("confine limit x -> min:{} max: {}", min_x, max_x);
+        eprintln!("confine limit y -> min:{} max: {}", min_y, max_y);
         transform.translation = translation;
     });
 }
@@ -320,6 +368,7 @@ pub fn enemy_movement(mut enemy_query: Query<(&mut Transform, &Enemy)>, time: Re
     for (mut transform, enemy) in enemy_query.iter_mut() {
         let direction = Vec3::new(enemy.direction.x, enemy.direction.y, 0.);
         transform.translation += direction * ENEMY_SPEED * time.delta_seconds();
+        eprintln!("movement {:?}", transform.translation);
     }
 }
 
