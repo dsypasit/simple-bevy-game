@@ -1,20 +1,35 @@
-use bevy::{
-    audio::Volume, core::Zeroable, prelude::*, utils::tracing::Instrument, window::PrimaryWindow,
-};
-use rand::{random, seq::IteratorRandom, thread_rng};
+use bevy::{audio::Volume, core::Zeroable, prelude::*, window::PrimaryWindow};
+use rand::random;
 
+pub const PLAYER_SIZE: f32 = 64.0;
 pub const PLAYER_SPEED: f32 = 300.0;
+pub const STAR_SIZE: f32 = 30.0;
+pub const STAR_NUMBER: i32 = 10;
+pub const ENEMIS_NUMBER: i32 = 4;
 pub const ENEMY_SPEED: f32 = 200.0;
 pub const ENEMY_SIZE: f32 = 64.0;
-pub const PLAYER_SIZE: f32 = 64.0;
-pub const ENEMIS_NUMBER: i32 = 4;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "hello".to_string(),
+                // resolution: (800., 600.).into(),
+                // resizable: false,
+                ..default()
+            }),
+            ..default()
+        }))
+        .init_resource::<Score>()
         .add_systems(
             Startup,
-            (spawn_audio, spawn_player, spawn_enemy, spawn_camera),
+            (
+                spawn_audio,
+                spawn_star,
+                spawn_player,
+                spawn_enemy,
+                spawn_camera,
+            ),
         )
         .add_systems(
             Update,
@@ -25,9 +40,72 @@ fn main() {
                 update_enemy_movement,
                 confine_enemy_movement,
                 enemy_hit_player,
+                player_hit_star,
+                update_score,
             ),
         )
         .run()
+}
+
+#[derive(Component)]
+pub struct Star {}
+
+#[derive(Resource, Default)]
+pub struct Score {
+    value: i32,
+}
+
+pub fn spawn_star(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+) {
+    let window = window_query.get_single().unwrap();
+    for _ in 0..STAR_NUMBER {
+        let rand_x = random::<f32>() * window.width();
+        let rand_y = random::<f32>() * window.height();
+        commands.spawn((
+            SpriteBundle {
+                transform: Transform::from_xyz(rand_x, rand_y, 0.0),
+                texture: asset_server.load("sprites/star.png"),
+                ..default()
+            },
+            Star {},
+        ));
+    }
+}
+
+pub fn player_hit_star(
+    mut commands: Commands,
+    mut star_query: Query<(Entity, &Transform), With<Star>>,
+    player_query: Query<&Transform, With<Player>>,
+    asset_server: Res<AssetServer>,
+    mut score: ResMut<Score>,
+) {
+    for (star_entity, star_transform) in star_query.iter_mut() {
+        let star_radius = STAR_SIZE / 2.0;
+        let player_radius = PLAYER_SIZE / 2.0;
+
+        if let Ok(player_transform) = player_query.get_single() {
+            let distance = player_transform
+                .translation
+                .distance(star_transform.translation);
+            if distance < star_radius + player_radius {
+                commands.entity(star_entity).despawn();
+                commands.spawn(AudioBundle {
+                    source: asset_server.load("audio/laserLarge_000.ogg"),
+                    settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
+                });
+                score.value += 1;
+            }
+        }
+    }
+}
+
+pub fn update_score(score: Res<Score>) {
+    if score.is_changed() {
+        eprintln!("Score:{}", score.value)
+    }
 }
 
 #[derive(Component)]
@@ -263,9 +341,7 @@ pub fn enemy_hit_player(
                 commands.spawn((
                     AudioBundle {
                         source: asset_server.load("audio/explosionCrunch_000.ogg"),
-                        settings: PlaybackSettings::ONCE
-                            .with_volume(Volume::new(0.5))
-                            .with_spatial(true),
+                        settings: PlaybackSettings::ONCE.with_volume(Volume::new(0.5)),
                     },
                     ExplosionClunchSound,
                 ));
