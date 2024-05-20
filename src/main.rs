@@ -1,14 +1,19 @@
-use bevy::{audio::Volume, core::Zeroable, prelude::*, window::PrimaryWindow};
-use rand::random;
+use bevy::{
+    app::AppExit, audio::Volume, core::Zeroable, ecs::change_detection, prelude::*,
+    window::PrimaryWindow,
+};
+use rand::seq::SliceRandom;
+use rand::{random, Rng};
 
 pub const PLAYER_SIZE: f32 = 64.0;
 pub const PLAYER_SPEED: f32 = 300.0;
 pub const STAR_SIZE: f32 = 30.0;
 pub const STAR_NUMBER: i32 = 10;
 pub const ENEMIS_NUMBER: i32 = 4;
-pub const ENEMY_SPEED: f32 = 200.0;
+pub const ENEMY_SPEED: f32 = 300.0;
 pub const ENEMY_SIZE: f32 = 64.0;
 pub const STAR_SPAWN_TIME: f32 = 1.0;
+pub const ENEMY_SPAWN_TIME: f32 = 5.0;
 
 fn main() {
     App::new()
@@ -22,7 +27,10 @@ fn main() {
             ..default()
         }))
         .init_resource::<Score>()
+        .init_resource::<HighestScore>()
         .init_resource::<starSpawnTimer>()
+        .init_resource::<enemySpawnTimer>()
+        .add_event::<GameOver>()
         .add_systems(
             Startup,
             (
@@ -46,6 +54,11 @@ fn main() {
                 update_score,
                 spawn_star_overtime,
                 tick_star_spawn_timer,
+                spawn_enemy_overtime,
+                exist_game,
+                handle_game_over,
+                highest_score_updated,
+                enemy_change_direction,
             ),
         )
         .run()
@@ -56,7 +69,12 @@ pub struct Star {}
 
 #[derive(Resource, Default)]
 pub struct Score {
-    value: i32,
+    pub value: u32,
+}
+
+#[derive(Resource, Default)]
+pub struct HighestScore {
+    pub value: u32,
 }
 
 pub fn spawn_star(
@@ -138,15 +156,54 @@ pub fn spawn_star_overtime(
     }
 }
 
+pub fn spawn_enemy_overtime(
+    mut commands: Commands,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    asset_server: Res<AssetServer>,
+    time: Res<Time>,
+    mut enemy_timer: ResMut<enemySpawnTimer>,
+) {
+    let window = window_query.get_single().unwrap();
+    let rand_x = random::<f32>() * window.width();
+    let rand_y = random::<f32>() * window.height();
+
+    enemy_timer.timer.tick(time.delta());
+    if enemy_timer.timer.just_finished() {
+        commands.spawn((
+            SpriteBundle {
+                transform: Transform::from_xyz(rand_x, rand_y, 0.0),
+                texture: asset_server.load("sprites/ball_red_large.png"),
+                ..default()
+            },
+            Enemy {
+                direction: Vec2::new(random(), random()),
+            },
+            EnemyChangeDirection::default(),
+        ));
+    }
+}
+
 #[derive(Resource)]
 pub struct starSpawnTimer {
     pub timer: Timer,
 }
-
 impl Default for starSpawnTimer {
     fn default() -> Self {
         Self {
             timer: Timer::from_seconds(STAR_SPAWN_TIME, TimerMode::Repeating),
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct enemySpawnTimer {
+    pub timer: Timer,
+}
+
+impl Default for enemySpawnTimer {
+    fn default() -> Self {
+        Self {
+            timer: Timer::from_seconds(ENEMY_SPAWN_TIME, TimerMode::Repeating),
         }
     }
 }
@@ -211,6 +268,7 @@ pub fn spawn_enemy(
             Enemy {
                 direction: Vec2::new(random(), random()).normalize(),
             },
+            EnemyChangeDirection::default(),
         ));
     }
 }
@@ -314,7 +372,6 @@ pub fn update_enemy_movement(
         }
 
         if change_direction {
-            eprintln!("hit edge screen");
             if random::<f32>() > 0.5 {
                 commands.spawn(AudioBundle {
                     source: asset_server.load("audio/pluck_001.ogg"),
@@ -357,18 +414,49 @@ pub fn confine_enemy_movement(
         if translation.y >= max_y {
             translation.y = max_y
         }
-        eprintln!("confine {:?}", translation);
-        eprintln!("confine limit x -> min:{} max: {}", min_x, max_x);
-        eprintln!("confine limit y -> min:{} max: {}", min_y, max_y);
         transform.translation = translation;
     });
 }
 
-pub fn enemy_movement(mut enemy_query: Query<(&mut Transform, &Enemy)>, time: Res<Time>) {
-    for (mut transform, enemy) in enemy_query.iter_mut() {
-        let direction = Vec3::new(enemy.direction.x, enemy.direction.y, 0.);
-        transform.translation += direction * ENEMY_SPEED * time.delta_seconds();
-        eprintln!("movement {:?}", transform.translation);
+#[derive(Component)]
+pub struct EnemyChangeDirection {
+    pub timer: Timer,
+    pub direction: f32,
+}
+
+impl Default for EnemyChangeDirection {
+    fn default() -> Self {
+        let mut rng = rand::thread_rng();
+        let time_to_change: f32 = rng.gen_range(1.0..5.0);
+        let choices = vec![1.0, -1.0];
+        let rand_direction = choices.choose(&mut rng).unwrap();
+        Self {
+            timer: Timer::from_seconds(time_to_change, TimerMode::Repeating),
+            direction: *rand_direction,
+        }
+    }
+}
+
+pub fn enemy_change_direction(
+    time: Res<Time>,
+    mut query: Query<&mut EnemyChangeDirection, With<Enemy>>,
+) {
+    for (mut change_direction) in query.iter_mut() {
+        change_direction.timer.tick(time.delta());
+        if change_direction.timer.just_finished() {
+            change_direction.direction *= -1.0
+        }
+    }
+}
+
+pub fn enemy_movement(
+    mut enemy_query: Query<(&mut Transform, &Enemy, &EnemyChangeDirection)>,
+    time: Res<Time>,
+) {
+    for (mut transform, enemy, change_direction) in enemy_query.iter_mut() {
+        let mut direction = Vec3::new(enemy.direction.x, enemy.direction.y, 0.);
+        transform.translation +=
+            direction * ENEMY_SPEED * time.delta_seconds() * change_direction.direction;
     }
 }
 
@@ -378,6 +466,8 @@ pub fn enemy_hit_player(
     mut player_query: Query<(Entity, &Transform), With<Player>>,
     asset_server: Res<AssetServer>,
     music_query: Query<&AudioSink, With<ExplosionClunchSound>>,
+    mut game_over_event_writer: EventWriter<GameOver>,
+    mut score: ResMut<Score>,
 ) {
     if let Ok((player_entity, player_transform)) = player_query.get_single_mut() {
         for enemy_transform in enemy_query.iter() {
@@ -396,7 +486,38 @@ pub fn enemy_hit_player(
                 ));
                 println!("Game over!");
                 commands.entity(player_entity).despawn();
+                game_over_event_writer.send(GameOver { score: score.value });
+                score.value = 0
             }
         }
+    }
+}
+
+#[derive(Event)]
+pub struct GameOver {
+    score: u32,
+}
+
+pub fn handle_game_over(
+    mut game_over_event_reader: EventReader<GameOver>,
+    mut highest_score: ResMut<HighestScore>,
+) {
+    for event in game_over_event_reader.read() {
+        println!("last score: {}", event.score);
+        if event.score > highest_score.value {
+            highest_score.value = event.score;
+        }
+    }
+}
+
+pub fn highest_score_updated(highest_score: Res<HighestScore>) {
+    if highest_score.is_changed() {
+        println!("highest score updated! : {}", highest_score.value)
+    }
+}
+
+pub fn exist_game(key_input: Res<ButtonInput<KeyCode>>, mut event_writer: EventWriter<AppExit>) {
+    if key_input.pressed(KeyCode::KeyQ) {
+        event_writer.send(AppExit);
     }
 }
