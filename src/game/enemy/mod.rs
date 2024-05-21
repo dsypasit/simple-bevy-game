@@ -7,8 +7,8 @@ pub mod components;
 pub mod resources;
 pub mod systems;
 
-pub const ENEMIS_NUMBER: i32 = 4;
-pub const ENEMY_SPEED: f32 = 300.0;
+pub const ENEMIS_NUMBER: i32 = 0;
+pub const ENEMY_SPEED: f32 = 0.0;
 pub const ENEMY_SIZE: f32 = 64.0;
 pub const ENEMY_SPAWN_TIME: f32 = 5.0;
 
@@ -25,7 +25,7 @@ impl Plugin for EnemyPlugin {
                     update_enemy_movement,
                     confine_enemy_movement,
                     enemy_hit_player,
-                    spawn_enemy_overtime,
+                    // spawn_enemy_overtime,
                     enemy_change_direction,
                 ),
             );

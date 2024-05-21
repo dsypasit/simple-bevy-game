@@ -1,7 +1,11 @@
-use crate::*;
-use bevy::prelude::*;
+use crate::{game::player::components::Bullet, *};
+use bevy::{
+    input::mouse::{mouse_button_input_system, MouseButtonInput, MouseMotion},
+    prelude::*,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+};
 
-use super::{components::Player, PLAYER_SPEED};
+use super::{components::Player, BULLET_SPEED, PLAYER_SPEED};
 
 pub fn spawn_player(
     mut commands: Commands,
@@ -79,5 +83,62 @@ pub fn player_movement(
         }
 
         transform.translation += direction * PLAYER_SPEED * time.delta_seconds();
+    }
+}
+
+pub fn shoot(
+    mut commands: Commands,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mut cursor_moved_events: EventReader<CursorMoved>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    player_query: Query<&Transform, With<Player>>,
+    windows_query: Query<&Window, With<PrimaryWindow>>,
+    q_camera: Query<(&Camera, &GlobalTransform)>,
+) {
+    let window = windows_query.get_single().unwrap();
+    let player_transform = match player_query.get_single() {
+        Ok(transform) => transform,
+        Err(e) => {
+            println!("cant get player transform");
+            return;
+        }
+    };
+    let translation = player_transform.translation;
+    let (camera, camera_transform) = q_camera.single();
+    if let Some(world_position) = window
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
+        .map(|ray| ray.origin.truncate())
+    {
+        if mouse_button_input.pressed(MouseButton::Left) {
+            // let mouse_pos = window.physical_cursor_position().unwrap();
+            let direction = (world_position - Vec2::new(translation.x, translation.y)).normalize();
+            println!("trans: {:?}", translation);
+            println!("mouse: {:?}", world_position);
+            println!("direction: {:?}", direction);
+
+            let box_mesh_handle = Mesh2dHandle(meshes.add(Cuboid::new(10.0, 10.0, 0.0)));
+            commands.spawn((
+                MaterialMesh2dBundle {
+                    mesh: box_mesh_handle,
+                    material: materials.add(Color::PURPLE),
+                    transform: Transform::from_xyz(translation.x, translation.y, 0.0),
+                    ..default()
+                },
+                Bullet { direction },
+            ));
+        }
+    }
+}
+
+pub fn bullet_direction(
+    mut bullet_query: Query<(&mut Transform, &Bullet)>,
+    q_camera: Query<(&Camera, &GlobalTransform)>,
+    time: Res<Time>,
+) {
+    for (mut transform, bullet) in bullet_query.iter_mut() {
+        let direction = Vec3::new(bullet.direction.x, bullet.direction.y, 0.0);
+        transform.translation += direction * BULLET_SPEED * time.delta_seconds();
     }
 }
