@@ -2,8 +2,8 @@ use crate::*;
 use bevy::prelude::*;
 
 use self::{
-    player::{components::Player, PLAYER_SIZE},
-    score::resources::Score,
+    game::player::{components::Player, PLAYER_SIZE},
+    game::score::resources::Score,
 };
 
 use super::{components::Star, resources::starSpawnTimer, STAR_NUMBER, STAR_SIZE};
@@ -20,7 +20,7 @@ pub fn spawn_star(
         let rand_y = random::<f32>() * window.height();
         commands.spawn((
             SpriteBundle {
-                transform: Transform::from_xyz(rand_x, rand_y, 0.0),
+                transform: Transform::from_xyz(rand_x, rand_y, -10.0),
                 texture: asset_server.load("sprites/star.png"),
                 ..default()
             },
@@ -69,7 +69,7 @@ pub fn spawn_star_overtime(
 
         commands.spawn((
             SpriteBundle {
-                transform: Transform::from_xyz(rand_x, rand_y, 0.0),
+                transform: Transform::from_xyz(rand_x, rand_y, -10.0),
                 texture: asset_server.load("sprites/star.png"),
                 ..default()
             },

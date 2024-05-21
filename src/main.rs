@@ -1,14 +1,9 @@
-mod enemy;
-mod player;
-mod score;
-mod star;
+mod game;
 mod systems;
 
-use enemy::EnemyPlugin;
-use player::PlayerPlugin;
-use score::events::GameOver;
-use score::ScorePlugin;
-use star::StarPlugin;
+use std::default;
+
+use game::{score::events::GameOver, GamePlugin};
 use systems::*;
 
 use bevy::{app::AppExit, audio::Volume, core::Zeroable, prelude::*, window::PrimaryWindow};
@@ -24,9 +19,18 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins((ScorePlugin, EnemyPlugin, PlayerPlugin, StarPlugin))
+        .init_state::<AppState>()
         .add_event::<GameOver>()
+        .add_plugins(GamePlugin)
         .add_systems(Startup, spawn_camera)
         .add_systems(Update, (exist_game, handle_game_over))
         .run()
+}
+
+#[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
+pub enum AppState {
+    #[default]
+    MainMenu,
+    Game,
+    GameOver,
 }

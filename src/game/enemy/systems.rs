@@ -2,8 +2,9 @@ use crate::*;
 use bevy::prelude::*;
 
 use self::{
-    player::{components::Player, PLAYER_SIZE},
-    score::resources::Score,
+    game::player::{components::Player, PLAYER_SIZE},
+    game::score::events::GameOver,
+    game::score::resources::Score,
 };
 
 use super::{

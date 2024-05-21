@@ -1,7 +1,5 @@
 use bevy::app::{Plugin, Startup, Update};
 
-use crate::*;
-
 use self::resources::*;
 use self::systems::*;
 

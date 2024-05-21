@@ -1,4 +1,3 @@
-use crate::*;
 use bevy::prelude::*;
 
 use super::resources::{HighestScore, Score};

@@ -1,6 +1,4 @@
-use bevy::app::{Plugin, Startup, Update};
-
-use crate::*;
+use bevy::app::{Plugin, Update};
 
 use self::resources::{HighestScore, Score};
 use self::systems::*;
