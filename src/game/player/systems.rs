@@ -7,7 +7,7 @@ use bevy::{
 
 use self::game::enemy::{self, components::Enemy, ENEMY_SIZE};
 
-use super::{components::Player, BULLET_SPEED, PLAYER_SPEED};
+use super::{components::Player, BULLET_SPEED, PLAYER_SIZE, PLAYER_SPEED};
 
 pub fn spawn_player(
     mut commands: Commands,
@@ -33,8 +33,7 @@ pub fn confine_player_movement(
     if let Ok(mut player_transform) = player_query.get_single_mut() {
         let window = window_query.get_single().unwrap();
 
-        // let half_player = PLAYER_SIZE / 2.0;
-        let half_player = 0.0;
+        let half_player = PLAYER_SIZE / 2.0;
         let min_x = 0.0 + half_player;
         let min_y = 0.0 + half_player;
         let max_x = window.width() - half_player;
@@ -101,7 +100,6 @@ pub fn shoot(
     let player_transform = match player_query.get_single() {
         Ok(transform) => transform,
         Err(_) => {
-            println!("cant get player transform");
             return;
         }
     };
@@ -169,10 +167,15 @@ pub fn bullet_hit_enemy(
         for (enemy_entity, enemy_trasform) in enemy_query.iter() {
             let enemy_translation = enemy_trasform.translation;
             let distance = btranslation.distance(enemy_translation);
-            println!("distance btw bullet and enemy: {}", distance);
             if distance < ENEMY_SIZE + 10.0 {
                 commands.entity(enemy_entity).despawn();
             }
         }
+    }
+}
+
+pub fn player_despawn(mut commands: Commands, query: Query<Entity, With<Player>>) {
+    for player_entity in query.iter() {
+        commands.entity(player_entity).despawn();
     }
 }

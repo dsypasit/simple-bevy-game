@@ -13,3 +13,13 @@ pub fn highest_score_updated(highest_score: Res<HighestScore>) {
         println!("highest score updated! : {}", highest_score.value)
     }
 }
+
+pub fn insert_resource(mut commands: Commands) {
+    commands.insert_resource(Score::default());
+    commands.insert_resource(HighestScore::default());
+}
+
+pub fn remove_resource(mut commands: Commands) {
+    commands.remove_resource::<Score>();
+    commands.remove_resource::<HighestScore>();
+}

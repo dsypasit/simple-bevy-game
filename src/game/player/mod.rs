@@ -1,10 +1,13 @@
-use bevy::app::{Plugin, Startup};
+use bevy::{
+    app::{Plugin, Startup},
+    audio::AddAudioSource,
+};
 
 use crate::*;
 
 use self::systems::*;
 
-use super::enemy::systems::confine_enemy_movement;
+use super::{enemy::systems::confine_enemy_movement, SimulationState};
 
 pub mod components;
 pub mod resources;
@@ -18,16 +21,20 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_systems(Startup, spawn_player).add_systems(
-            Update,
-            ((
-                player_movement.before(confine_enemy_movement),
-                confine_player_movement,
-                shoot,
-                bullet_direction,
-                bullet_hit_screen,
-                bullet_hit_enemy,
-            )),
-        );
+        app.add_systems(OnEnter(AppState::Game), spawn_player)
+            .add_systems(
+                Update,
+                ((
+                    player_movement.before(confine_enemy_movement),
+                    confine_player_movement,
+                    shoot,
+                    bullet_direction,
+                    bullet_hit_screen,
+                    bullet_hit_enemy,
+                )
+                    .run_if(in_state(AppState::Game))
+                    .run_if(in_state(SimulationState::Running))),
+            )
+            .add_systems(OnExit(AppState::Game), player_despawn);
     }
 }

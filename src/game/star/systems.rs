@@ -81,3 +81,9 @@ pub fn spawn_star_overtime(
 pub fn tick_star_spawn_timer(mut star_spawn_timer: ResMut<starSpawnTimer>, time: Res<Time>) {
     star_spawn_timer.timer.tick(time.delta());
 }
+
+pub fn star_despawn(mut commands: Commands, query: Query<Entity, With<Star>>) {
+    for star_entity in query.iter() {
+        commands.entity(star_entity).despawn();
+    }
+}

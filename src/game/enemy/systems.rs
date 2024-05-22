@@ -193,3 +193,9 @@ pub fn enemy_movement(
             direction * ENEMY_SPEED * time.delta_seconds() * change_direction.direction;
     }
 }
+
+pub fn enemy_despawn(mut commands: Commands, query: Query<Entity, With<Enemy>>) {
+    for enemy_entity in query.iter() {
+        commands.entity(enemy_entity).despawn();
+    }
+}

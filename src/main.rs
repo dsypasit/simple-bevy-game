@@ -23,7 +23,9 @@ fn main() {
         .add_event::<GameOver>()
         .add_plugins(GamePlugin)
         .add_systems(Startup, spawn_camera)
-        .add_systems(Update, (exist_game, handle_game_over))
+        .add_systems(Update, (transition_to_menu_state, transition_to_game_state))
+        .add_systems(Update, (handle_game_over).run_if(in_state(AppState::Game)))
+        .add_systems(Update, (exist_game))
         .run()
 }
 
