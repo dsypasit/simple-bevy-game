@@ -25,6 +25,8 @@ impl Plugin for PlayerPlugin {
                 confine_player_movement,
                 shoot,
                 bullet_direction,
+                bullet_hit_screen,
+                bullet_hit_enemy,
             )),
         );
     }

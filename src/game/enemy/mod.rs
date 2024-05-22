@@ -7,8 +7,8 @@ pub mod components;
 pub mod resources;
 pub mod systems;
 
-pub const ENEMIS_NUMBER: i32 = 0;
-pub const ENEMY_SPEED: f32 = 0.0;
+pub const ENEMIS_NUMBER: i32 = 5;
+pub const ENEMY_SPEED: f32 = 300.0;
 pub const ENEMY_SIZE: f32 = 64.0;
 pub const ENEMY_SPAWN_TIME: f32 = 5.0;
 

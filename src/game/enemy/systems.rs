@@ -41,7 +41,7 @@ pub fn spawn_enemy(
 }
 
 pub fn confine_enemy_movement(
-    mut enemy_query: Query<&mut Transform>,
+    mut enemy_query: Query<&mut Transform, With<Enemy>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
     let window = window_query.get_single().unwrap();

@@ -5,6 +5,8 @@ use bevy::{
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
 
+use self::game::enemy::{self, components::Enemy, ENEMY_SIZE};
+
 use super::{components::Player, BULLET_SPEED, PLAYER_SPEED};
 
 pub fn spawn_player(
@@ -89,7 +91,6 @@ pub fn player_movement(
 pub fn shoot(
     mut commands: Commands,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut cursor_moved_events: EventReader<CursorMoved>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     player_query: Query<&Transform, With<Player>>,
@@ -99,7 +100,7 @@ pub fn shoot(
     let window = windows_query.get_single().unwrap();
     let player_transform = match player_query.get_single() {
         Ok(transform) => transform,
-        Err(e) => {
+        Err(_) => {
             println!("cant get player transform");
             return;
         }
@@ -114,14 +115,10 @@ pub fn shoot(
         if mouse_button_input.pressed(MouseButton::Left) {
             // let mouse_pos = window.physical_cursor_position().unwrap();
             let direction = (world_position - Vec2::new(translation.x, translation.y)).normalize();
-            println!("trans: {:?}", translation);
-            println!("mouse: {:?}", world_position);
-            println!("direction: {:?}", direction);
-
-            let box_mesh_handle = Mesh2dHandle(meshes.add(Cuboid::new(10.0, 10.0, 0.0)));
+            let box_mesh_handle = meshes.add(Cuboid::new(10.0, 10.0, 0.0));
             commands.spawn((
                 MaterialMesh2dBundle {
-                    mesh: box_mesh_handle,
+                    mesh: box_mesh_handle.into(),
                     material: materials.add(Color::PURPLE),
                     transform: Transform::from_xyz(translation.x, translation.y, 0.0),
                     ..default()
@@ -132,13 +129,50 @@ pub fn shoot(
     }
 }
 
-pub fn bullet_direction(
-    mut bullet_query: Query<(&mut Transform, &Bullet)>,
-    q_camera: Query<(&Camera, &GlobalTransform)>,
-    time: Res<Time>,
-) {
+pub fn bullet_direction(mut bullet_query: Query<(&mut Transform, &Bullet)>, time: Res<Time>) {
     for (mut transform, bullet) in bullet_query.iter_mut() {
         let direction = Vec3::new(bullet.direction.x, bullet.direction.y, 0.0);
         transform.translation += direction * BULLET_SPEED * time.delta_seconds();
+    }
+}
+
+pub fn bullet_hit_screen(
+    mut commands: Commands,
+    mut bullet_query: Query<(&mut Transform, Entity), With<Bullet>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+) {
+    let window = window_query.single();
+    let min_x = 0.0;
+    let max_x = window.width();
+    let min_y = 0.0;
+    let max_y = window.height();
+
+    if let Ok((mut btransform, bentity)) = bullet_query.get_single_mut() {
+        let btranslation = btransform.translation;
+        if btranslation.x < min_x
+            || btranslation.x > max_x
+            || btranslation.y < min_y
+            || btranslation.y > max_y
+        {
+            commands.entity(bentity).despawn();
+        }
+    }
+}
+
+pub fn bullet_hit_enemy(
+    mut commands: Commands,
+    bullet_query: Query<&Transform, With<Bullet>>,
+    enemy_query: Query<(Entity, &Transform), With<Enemy>>,
+) {
+    for btransform in bullet_query.iter() {
+        let btranslation = btransform.translation;
+        for (enemy_entity, enemy_trasform) in enemy_query.iter() {
+            let enemy_translation = enemy_trasform.translation;
+            let distance = btranslation.distance(enemy_translation);
+            println!("distance btw bullet and enemy: {}", distance);
+            if distance < ENEMY_SIZE + 10.0 {
+                commands.entity(enemy_entity).despawn();
+            }
+        }
     }
 }
