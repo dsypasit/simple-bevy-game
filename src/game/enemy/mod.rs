@@ -1,4 +1,4 @@
-use bevy::app::{Plugin, Startup, Update};
+use bevy::app::{Plugin, Update};
 use bevy::ecs::schedule::common_conditions::in_state;
 use bevy::ecs::schedule::{IntoSystemConfigs, OnEnter, OnExit};
 

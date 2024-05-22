@@ -3,6 +3,7 @@ pub mod player;
 pub mod score;
 pub mod star;
 pub mod systems;
+pub mod weapon;
 use bevy::prelude::*;
 use systems::*;
 

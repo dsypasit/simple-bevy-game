@@ -12,7 +12,7 @@ pub mod systems;
 
 pub const PLAYER_SIZE: f32 = 64.0;
 pub const PLAYER_SPEED: f32 = 300.0;
-pub const BULLET_SPEED: f32 = 300.0;
+pub const BULLET_SPEED: f32 = 1000.0;
 
 pub struct PlayerPlugin;
 
@@ -34,6 +34,6 @@ impl Plugin for PlayerPlugin {
                     .run_if(in_state(AppState::Game))
                     .run_if(in_state(SimulationState::Running))),
             )
-            .add_systems(OnExit(AppState::Game), player_despawn);
+            .add_systems(OnExit(AppState::Game), (player_despawn, bullet_despawn));
     }
 }

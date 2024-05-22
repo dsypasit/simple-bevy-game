@@ -1,14 +1,10 @@
 use crate::{game::player::components::Bullet, *};
-use bevy::{
-    input::mouse::{mouse_button_input_system, MouseButtonInput, MouseMotion},
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-};
+use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
-use self::game::enemy::{self, components::Enemy, ENEMY_SIZE};
+use self::game::enemy::{components::Enemy, ENEMY_SIZE};
 
 use super::{
-    components::{CreateBulletEvent, Player},
+    components::{CreateBulletEvent, Player, Weapon},
     BULLET_SPEED, PLAYER_SIZE, PLAYER_SPEED,
 };
 
@@ -26,6 +22,9 @@ pub fn spawn_player(
             ..default()
         },
         Player {},
+        Weapon {
+            firerate_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+        },
     ));
 }
 
@@ -93,7 +92,9 @@ pub fn player_movement(
 pub fn shoot(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     player_query: Query<&Transform, With<Player>>,
+    mut weapon_query: Query<&mut Weapon, With<Player>>,
     mut event_writer: EventWriter<CreateBulletEvent>,
+    time: Res<Time>,
 ) {
     let player_transform = match player_query.get_single() {
         Ok(transform) => transform,
@@ -101,11 +102,27 @@ pub fn shoot(
             return;
         }
     };
+
+    let mut weapon = match weapon_query.get_single_mut() {
+        Ok(weapon) => weapon,
+        Err(_) => {
+            return;
+        }
+    };
+
     let translation = player_transform.translation;
-    if mouse_button_input.pressed(MouseButton::Left) {
+    weapon.firerate_timer.tick(time.delta());
+    if mouse_button_input.just_pressed(MouseButton::Left) {
         event_writer.send(CreateBulletEvent {
             position: translation,
         });
+    }
+    if mouse_button_input.pressed(MouseButton::Left) {
+        if weapon.firerate_timer.just_finished() {
+            event_writer.send(CreateBulletEvent {
+                position: translation,
+            });
+        }
     }
 }
 
@@ -117,8 +134,10 @@ pub fn create_bullet(
     windows_query: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
     mut event_reader: EventReader<CreateBulletEvent>,
+    time: Res<Time>,
 ) {
-    for event in event_reader.read() {
+    for mut event in event_reader.read() {
+        // event.firerate.tick(time.delta());
         let window = windows_query.get_single().unwrap();
 
         let translation = event.position;
@@ -197,5 +216,11 @@ pub fn bullet_hit_enemy(
 pub fn player_despawn(mut commands: Commands, query: Query<Entity, With<Player>>) {
     for player_entity in query.iter() {
         commands.entity(player_entity).despawn();
+    }
+}
+
+pub fn bullet_despawn(mut commands: Commands, query: Query<Entity, With<Bullet>>) {
+    for bullet_entity in query.iter() {
+        commands.entity(bullet_entity).despawn();
     }
 }
