@@ -15,6 +15,7 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<SimulationState>()
+            .add_systems(OnEnter(AppState::Game), game_begin)
             .add_plugins((ScorePlugin, EnemyPlugin, PlayerPlugin, StarPlugin))
             .add_systems(Update, toggle_simulation.run_if(in_state(AppState::Game)));
     }

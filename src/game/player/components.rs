@@ -8,3 +8,8 @@ pub struct Player {}
 pub struct Bullet {
     pub direction: Vec2,
 }
+
+#[derive(Event)]
+pub struct CreateBulletEvent {
+    pub position: Vec3,
+}

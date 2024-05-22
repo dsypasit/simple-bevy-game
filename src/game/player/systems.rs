@@ -7,7 +7,10 @@ use bevy::{
 
 use self::game::enemy::{self, components::Enemy, ENEMY_SIZE};
 
-use super::{components::Player, BULLET_SPEED, PLAYER_SIZE, PLAYER_SPEED};
+use super::{
+    components::{CreateBulletEvent, Player},
+    BULLET_SPEED, PLAYER_SIZE, PLAYER_SPEED,
+};
 
 pub fn spawn_player(
     mut commands: Commands,
@@ -88,15 +91,10 @@ pub fn player_movement(
 }
 
 pub fn shoot(
-    mut commands: Commands,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     player_query: Query<&Transform, With<Player>>,
-    windows_query: Query<&Window, With<PrimaryWindow>>,
-    q_camera: Query<(&Camera, &GlobalTransform)>,
+    mut event_writer: EventWriter<CreateBulletEvent>,
 ) {
-    let window = windows_query.get_single().unwrap();
     let player_transform = match player_query.get_single() {
         Ok(transform) => transform,
         Err(_) => {
@@ -104,25 +102,47 @@ pub fn shoot(
         }
     };
     let translation = player_transform.translation;
-    let (camera, camera_transform) = q_camera.single();
-    if let Some(world_position) = window
-        .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
-        .map(|ray| ray.origin.truncate())
-    {
-        if mouse_button_input.pressed(MouseButton::Left) {
-            // let mouse_pos = window.physical_cursor_position().unwrap();
-            let direction = (world_position - Vec2::new(translation.x, translation.y)).normalize();
-            let box_mesh_handle = meshes.add(Cuboid::new(10.0, 10.0, 0.0));
-            commands.spawn((
-                MaterialMesh2dBundle {
-                    mesh: box_mesh_handle.into(),
-                    material: materials.add(Color::PURPLE),
-                    transform: Transform::from_xyz(translation.x, translation.y, 0.0),
-                    ..default()
-                },
-                Bullet { direction },
-            ));
+    if mouse_button_input.pressed(MouseButton::Left) {
+        event_writer.send(CreateBulletEvent {
+            position: translation,
+        });
+    }
+}
+
+pub fn create_bullet(
+    mut commands: Commands,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    windows_query: Query<&Window, With<PrimaryWindow>>,
+    q_camera: Query<(&Camera, &GlobalTransform)>,
+    mut event_reader: EventReader<CreateBulletEvent>,
+) {
+    for event in event_reader.read() {
+        let window = windows_query.get_single().unwrap();
+
+        let translation = event.position;
+        let (camera, camera_transform) = q_camera.single();
+        if let Some(world_position) = window
+            .cursor_position()
+            .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
+            .map(|ray| ray.origin.truncate())
+        {
+            if mouse_button_input.pressed(MouseButton::Left) {
+                // let mouse_pos = window.physical_cursor_position().unwrap();
+                let direction =
+                    (world_position - Vec2::new(translation.x, translation.y)).normalize();
+                let box_mesh_handle = meshes.add(Cuboid::new(10.0, 10.0, 0.0));
+                commands.spawn((
+                    MaterialMesh2dBundle {
+                        mesh: box_mesh_handle.into(),
+                        material: materials.add(Color::PURPLE),
+                        transform: Transform::from_xyz(translation.x, translation.y, 0.0),
+                        ..default()
+                    },
+                    Bullet { direction },
+                ));
+            }
         }
     }
 }

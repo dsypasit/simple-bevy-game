@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::AppState;
+
 use super::SimulationState;
 
 pub fn toggle_simulation(
@@ -17,4 +19,8 @@ pub fn toggle_simulation(
             println!("runing");
         }
     }
+}
+
+pub fn game_begin(mut commands: Commands) {
+    commands.insert_resource(NextState(Some(SimulationState::Pause)))
 }

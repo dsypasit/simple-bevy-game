@@ -1,11 +1,8 @@
-use bevy::{
-    app::{Plugin, Startup},
-    audio::AddAudioSource,
-};
+use bevy::app::Plugin;
 
 use crate::*;
 
-use self::systems::*;
+use self::{components::CreateBulletEvent, systems::*};
 
 use super::{enemy::systems::confine_enemy_movement, SimulationState};
 
@@ -21,7 +18,8 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_systems(OnEnter(AppState::Game), spawn_player)
+        app.add_event::<CreateBulletEvent>()
+            .add_systems(OnEnter(AppState::Game), (spawn_player))
             .add_systems(
                 Update,
                 ((
@@ -31,6 +29,7 @@ impl Plugin for PlayerPlugin {
                     bullet_direction,
                     bullet_hit_screen,
                     bullet_hit_enemy,
+                    create_bullet,
                 )
                     .run_if(in_state(AppState::Game))
                     .run_if(in_state(SimulationState::Running))),
