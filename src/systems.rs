@@ -50,7 +50,7 @@ pub fn handle_game_over(
         if event.score > highest_score.value {
             highest_score.value = event.score;
         }
-        next_app_state.set(AppState::GameOver);
+        next_app_state.set(AppState::MainMenu);
     }
 }
 
