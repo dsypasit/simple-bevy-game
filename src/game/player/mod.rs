@@ -23,7 +23,7 @@ impl Plugin for PlayerPlugin {
             .add_systems(
                 Update,
                 ((
-                    player_movement.before(confine_enemy_movement),
+                    player_movement.before(confine_player_movement),
                     confine_player_movement,
                     shoot,
                     bullet_direction,

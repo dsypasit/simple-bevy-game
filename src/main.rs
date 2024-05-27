@@ -1,9 +1,11 @@
 mod game;
+mod main_menu;
 mod systems;
 
 use std::default;
 
 use game::{score::events::GameOver, GamePlugin};
+use main_menu::MainMenuPlugin;
 use systems::*;
 
 use bevy::{app::AppExit, audio::Volume, core::Zeroable, prelude::*, window::PrimaryWindow};
@@ -21,6 +23,7 @@ fn main() {
         }))
         .init_state::<AppState>()
         .add_event::<GameOver>()
+        .add_plugins(MainMenuPlugin)
         .add_plugins(GamePlugin)
         .add_systems(Startup, spawn_camera)
         .add_systems(Update, (transition_to_menu_state, transition_to_game_state))

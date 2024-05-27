@@ -15,10 +15,11 @@ pub fn transition_to_game_state(
     mut commands: Commands,
     key_input: Res<ButtonInput<KeyCode>>,
     app_state: Res<State<AppState>>,
+    mut next_app_state: ResMut<NextState<AppState>>,
 ) {
     if key_input.just_pressed(KeyCode::KeyG) {
         if *app_state.get() != AppState::Game {
-            commands.insert_resource(NextState(Some(AppState::Game)));
+            next_app_state.set(AppState::Game);
             println!("transition to state: game");
         }
     }
@@ -28,10 +29,11 @@ pub fn transition_to_menu_state(
     mut commands: Commands,
     key_input: Res<ButtonInput<KeyCode>>,
     app_state: Res<State<AppState>>,
+    mut next_app_state: ResMut<NextState<AppState>>,
 ) {
     if key_input.just_pressed(KeyCode::KeyM) {
         if *app_state.get() != AppState::MainMenu {
-            commands.insert_resource(NextState(Some(AppState::MainMenu)));
+            next_app_state.set(AppState::MainMenu);
             println!("transition to state: main menu");
         }
     }
@@ -41,13 +43,14 @@ pub fn handle_game_over(
     mut game_over_event_reader: EventReader<GameOver>,
     mut highest_score: ResMut<HighestScore>,
     mut commands: Commands,
+    mut next_app_state: ResMut<NextState<AppState>>,
 ) {
     for event in game_over_event_reader.read() {
         println!("last score: {}", event.score);
         if event.score > highest_score.value {
             highest_score.value = event.score;
         }
-        commands.insert_resource(NextState(Some(AppState::GameOver)));
+        next_app_state.set(AppState::GameOver);
     }
 }
 
