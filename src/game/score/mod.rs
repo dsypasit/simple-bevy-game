@@ -18,11 +18,11 @@ pub struct ScorePlugin;
 
 impl Plugin for ScorePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_systems(OnEnter(AppState::Game), insert_resource)
+        app.add_systems(OnEnter(AppState::Game), (insert_resource, spawn_score))
             .add_systems(
                 Update,
                 (update_score, highest_score_updated).run_if(in_state(AppState::Game)),
             )
-            .add_systems(OnExit(AppState::Game), remove_resource);
+            .add_systems(OnExit(AppState::Game), (remove_resource, despawn_score));
     }
 }
